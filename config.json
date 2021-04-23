@@ -1,0 +1,36 @@
+{
+  "pg_dump_path": "/usr/local/bin/pg_dump",
+  "subscribes": [
+    {
+      "dump": false,
+      "slotName": "slot_for_es_142",
+      "pgConnConf": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "database": "asset_intel",
+        "user": "itcp",
+        "password": "123456"
+      },
+      "rules": [
+        {
+          "table": "organization",
+          "pks": [
+            "id"
+          ],
+          "esid": [
+            "uuid"
+          ],
+          "index": "units",
+          "type": "logs"
+        }
+      ],
+      "esConf": {
+        "addrs": "http://localhost:9200",
+        "user": "",
+        "password": ""
+      },
+      "retry": 3
+    }
+  ],
+  "prometheus_address": ":8080"
+}
