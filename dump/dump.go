@@ -43,7 +43,7 @@ func (d *Dumper) Dump(snapshotID string, h handler.Handler) error {
 	args = append(args, "--column-inserts")
 	args = append(args, fmt.Sprintf("--schema=%s", d.sub.PGConnConf.Schema))
 	for _, rule := range d.sub.Rules {
-		args = append(args, fmt.Sprintf(`--table=%s`, rule.Table))
+		args = append(args, fmt.Sprintf(`--table=%s`, rule))
 	}
 	args = append(args, fmt.Sprintf("--snapshot=%s", snapshotID))
 

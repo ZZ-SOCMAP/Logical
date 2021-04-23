@@ -1,21 +1,28 @@
 package conf
 
+type Config struct {
+	Subscribe SubscribeConfig `yaml:"subscribe"`
+}
+
+type SubscribeConfig struct {
+	DumpPath   string   `yaml:"dump_path"`
+	Historical string   `yaml:"historical"`
+	DbHost     string   `yaml:"db_host"`
+	DbPort     uint16   `yaml:"db_port"`
+	DbName     string   `yaml:"db_name"`
+	DbUser     string   `yaml:"db_user"`
+	DbPass     string   `yaml:"db_pass"`
+	DbKey      string   `yaml:"db_key"`
+	SlotName   string   `yaml:"slot_name"`
+	Tables     []string `yaml:"tables"`
+}
+
 // Conf ...
 type Conf struct {
 	// PgDumpExec pg_dump 可执行文件路径
 	PgDumpExec string `json:"pg_dump_path"`
 	// Subscribes 订阅规则
 	Subscribes []*Subscribe `json:"subscribes"`
-}
-
-// ESConf es 配置
-type ESConf struct {
-	// Addrs es 地址
-	Addrs string `json:"addrs"`
-	// User es username
-	User string `json:"user"`
-	// Password es password
-	Password string `json:"password"`
 }
 
 // PGConnConf of pg
@@ -43,26 +50,7 @@ type Subscribe struct {
 	// PGConnConf pg 连接配置
 	PGConnConf *PGConnConf `json:"pgConnConf"`
 	// Rules 订阅规则
-	Rules []*Rule `json:"rules"`
-	// ESConf ES 配置
-	ESConf *ESConf `json:"esConf"`
+	Rules []string `json:"rules"`
 	// Retry 重试次数 -1:无限重试
 	Retry int `json:"retry"`
-}
-
-// Rule 同步规则
-type Rule struct {
-	// Table 订阅数据表，支持 ?* 通配符匹配
-	Table string `json:"table"`
-	// 下面几项同步到es中时需配置
-	// ESID 用作es中id的字段，多个字段内容会连在一起
-	ESID []string `json:"esid"`
-	// Index es中的idex
-	Index string `json:"index"`
-	// Type es中的type
-	Type string `json:"type"`
-
-	// 下面几项同步到kafka中时需要配置
-	// Topic ...
-	Topic string `json:"topic"`
 }

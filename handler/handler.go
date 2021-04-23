@@ -25,13 +25,12 @@ func NewHandler(sub *conf.Subscribe, callback PosCallback) Handler {
 		callback:  callback,
 		rules:     sub.Rules,
 		sub:       sub,
-		ruleCache: map[string]*conf.Rule{},
+		ruleCache: map[string]string{},
 		skipCache: map[string]struct{}{},
 		done:      make(chan struct{}),
 	}
 
 	ret.output = output.NewOutput(sub)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	ret.cancel = cancel
 	go ret.runloop(ctx)
