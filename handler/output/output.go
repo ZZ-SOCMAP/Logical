@@ -12,6 +12,6 @@ type Output interface {
 }
 
 // NewOutput create new output
-func NewOutput(sub *conf.Subscribe) Output {
+func NewOutput(sub *conf.SubscribeConfig) Output {
 	return newESOutput(sub)
 }

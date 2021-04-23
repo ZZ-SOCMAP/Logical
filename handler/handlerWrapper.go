@@ -16,7 +16,7 @@ type handlerWrapper struct {
 	records   []*model.WalData
 	maxPos    uint64
 	callback  PosCallback
-	sub       *conf.Subscribe
+	sub       *conf.SubscribeConfig
 	rules     []string
 	ruleCache map[string]string
 	skipCache map[string]struct{}

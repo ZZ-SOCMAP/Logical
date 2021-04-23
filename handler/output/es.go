@@ -7,11 +7,11 @@ import (
 )
 
 type esHandler struct {
-	sub *conf.Subscribe
+	sub *conf.SubscribeConfig
 }
 
 // newESOutput create handler write data to es
-func newESOutput(sub *conf.Subscribe) Output {
+func newESOutput(sub *conf.SubscribeConfig) Output {
 	return &esHandler{sub: sub}
 }
 

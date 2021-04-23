@@ -19,11 +19,11 @@ type Handler interface {
 type PosCallback func(uint64)
 
 // NewHandler create wal handler with subscribe config
-func NewHandler(sub *conf.Subscribe, callback PosCallback) Handler {
+func NewHandler(sub *conf.SubscribeConfig, callback PosCallback) Handler {
 	ret := &handlerWrapper{
 		dataCh:    make(chan []*model.WalData, 20480),
 		callback:  callback,
-		rules:     sub.Rules,
+		rules:     sub.Tables,
 		sub:       sub,
 		ruleCache: map[string]string{},
 		skipCache: map[string]struct{}{},

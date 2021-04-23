@@ -8,8 +8,8 @@ import (
 	"logical/log"
 	"logical/river"
 
-	"github.com/json-iterator/go"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 var configfile = flag.String("config", "", "config")
@@ -29,11 +29,10 @@ func main() {
 		panic(err)
 	}
 
-	var config conf.Conf
-	if err := jsoniter.Unmarshal(data, &config); err != nil {
+	var config conf.Config
+	if err = yaml.Unmarshal(data, &config); err != nil {
 		panic(err)
 	}
-
 	amazon := river.New(&config)
 	amazon.Start()
 

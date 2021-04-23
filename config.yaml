@@ -8,7 +8,6 @@ subscribe:
   db_pass: '123456'
   db_key: 'id'   # 表主键或者唯一id
   slot_name: 'slot_for_localhost'
+  upstream: '127.0.0.1:50049'
   tables: # 订阅数据表，支持 ?* 通配符匹配
     - 'organization'
-
-
