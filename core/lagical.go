@@ -2,10 +2,10 @@ package core
 
 import (
 	"context"
+	"go.uber.org/zap"
 	"sync"
 
-	"logical/conf"
-	"logical/log"
+	"logical/config"
 )
 
 // this is a static check
@@ -15,18 +15,18 @@ var _ Interface = (*river)(nil)
 type Interface interface {
 	Start() error
 	Stop()
-	Update(config *conf.Config)
+	Update(config *config.Config)
 }
 
 type river struct {
-	conf   *conf.Config
+	conf   *config.Config
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     *sync.WaitGroup
 }
 
-// New create river from conf
-func New(conf *conf.Config) Interface {
+// New create river from config
+func New(conf *config.Config) Interface {
 	return &river{conf: conf}
 }
 
@@ -36,14 +36,14 @@ func (r *river) Start() error {
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	if r.conf != nil {
 		r.wg.Add(1)
-		stream := newStream(r.conf)
+		var stream = newStream(r.conf)
 		go func() { _ = stream.start(r.ctx, r.wg) }()
 	}
-	log.Logger.Info("start logical...")
+	zap.L().Info("start logical...")
 	return nil
 }
 
-func (r *river) Update(config *conf.Config) {
+func (r *river) Update(config *config.Config) {
 	// stop running streams
 	r.Stop()
 	r.conf = config

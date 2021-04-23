@@ -23,23 +23,20 @@ func newParser(r io.Reader) *parser {
 func (p *parser) parse(h handler2.Handler) error {
 	rb := bufio.NewReaderSize(p.r, 1024*16)
 	for {
-
-		line, err := rb.ReadString('\n')
+		var line, err = rb.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return err
 		}
-
 		data := p.parseSql(line)
 		if data == nil {
 			continue
 		}
-		if err := h.Handle(data); err != nil {
+		if err = h.Handle(data); err != nil {
 			return err
 		}
-
 	}
 	return nil
 }
@@ -48,7 +45,6 @@ func (p *parser) parseSql(line string) *model2.WalData {
 	if !strings.HasPrefix(line, "INSERT") {
 		return nil
 	}
-
 	stmt, err := sqlparser.Parse(line)
 	if err != nil {
 		fmt.Println(err)
@@ -56,21 +52,21 @@ func (p *parser) parseSql(line string) *model2.WalData {
 	}
 	switch row := stmt.(type) {
 	case *sqlparser.Insert:
-
 		var data = map[string]interface{}{}
 		var columns []string
-		for _, clm := range row.Columns {
-			columns = append(columns, clm.String())
+		for i := 0; i < len(row.Columns); i++ {
+			columns = append(columns, row.Columns[i].String())
+		}
+		if columns == nil {
+			return nil
 		}
 		if values, ok := row.Rows.(sqlparser.Values); ok {
-			value := values[0]
-			for i, col := range value {
-				name := columns[i]
-				switch val := col.(type) {
+			for i := 0; i < len(values[0]); i++ {
+				switch val := values[0][i].(type) {
 				case *sqlparser.SQLVal:
-					data[name] = p.parseSQLVal(val)
+					data[columns[i]] = p.parseSQLVal(val)
 				case *sqlparser.NullVal:
-					data[name] = nil
+					data[columns[i]] = nil
 				}
 			}
 			return &model2.WalData{OperationType: model2.Insert, Schema: row.Table.Qualifier.String(), Table: row.Table.Name.String(), Data: data}

@@ -1,4 +1,5 @@
-subscribe:
+### 捕获配置
+capture:
   dump_path: '/usr/local/bin/pg_dump' # 命令路径
   historical: false  # 是否处理历史数据(一般用于第一次)
   db_host: '127.0.0.1'
@@ -8,6 +9,18 @@ subscribe:
   db_pass: '123456'
   db_key: 'id'   # 表主键或者唯一id
   slot_name: 'slot_for_localhost'
-  upstream: '127.0.0.1:50049'
   tables: # 订阅数据表，支持 ?* 通配符匹配
     - 'organization'
+
+### 日志配置
+logger:
+  size: 100       # 日志最大(m)
+  age: 7          # 最大生命(d)
+  level: info    # debug, info, warn, error
+  backup: 10      # 最大备份
+  savepath: logs/logical.log # 存储路径
+
+### 输出配置
+upstream:
+  host: 'localhost:50049' # 上游服务配置
+  timeout: 5 # 连接超时设置

@@ -5,7 +5,7 @@ import (
 	model2 "logical/core/model"
 	"time"
 
-	"logical/conf"
+	"logical/config"
 )
 
 type wrapper struct {
@@ -14,8 +14,7 @@ type wrapper struct {
 	records   []*model2.WalData
 	maxPos    uint64
 	callback  PosCallback
-	sub       *conf.SubscribeConfig
-	rules     []string
+	capture   *config.Capture
 	ruleCache map[string]string
 	skipCache map[string]struct{}
 	cancel    context.CancelFunc
@@ -87,7 +86,7 @@ func (h *wrapper) filterData(data *model2.WalData) (matchedRule string, matched 
 	}
 	matchedRule, matched = h.ruleCache[data.Table]
 	if !matched {
-		for _, rule := range h.rules {
+		for _, rule := range h.capture.Tables {
 			if match(rule, data.Table) {
 				matched = true
 				matchedRule = rule
