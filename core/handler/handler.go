@@ -2,16 +2,15 @@ package handler
 
 import (
 	"context"
+	model2 "logical/core/model"
 
 	"logical/conf"
-	"logical/handler/output"
-	"logical/model"
 )
 
 // Handler handle dump data
 type Handler interface {
 	// Handle row data
-	Handle(wal ...*model.WalData) error
+	Handle(wal ...*model2.WalData) error
 	Stop()
 }
 
@@ -20,8 +19,8 @@ type PosCallback func(uint64)
 
 // NewHandler create wal handler with subscribe config
 func NewHandler(sub *conf.SubscribeConfig, callback PosCallback) Handler {
-	ret := &handlerWrapper{
-		dataCh:    make(chan []*model.WalData, 20480),
+	ret := &wrapper{
+		dataCh:    make(chan []*model2.WalData, 20480),
 		callback:  callback,
 		rules:     sub.Tables,
 		sub:       sub,
@@ -30,7 +29,7 @@ func NewHandler(sub *conf.SubscribeConfig, callback PosCallback) Handler {
 		done:      make(chan struct{}),
 	}
 
-	ret.output = output.NewOutput(sub)
+	ret.output = NewOutput(sub.Upstream)
 	ctx, cancel := context.WithCancel(context.Background())
 	ret.cancel = cancel
 	go ret.runloop(ctx)

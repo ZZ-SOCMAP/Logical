@@ -4,11 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	handler2 "logical/core/handler"
+	model2 "logical/core/model"
 	"strconv"
 	"strings"
-
-	"logical/handler"
-	"logical/model"
 
 	"github.com/xwb1989/sqlparser"
 )
@@ -21,7 +20,7 @@ func newParser(r io.Reader) *parser {
 	return &parser{r: r}
 }
 
-func (p *parser) parse(h handler.Handler) error {
+func (p *parser) parse(h handler2.Handler) error {
 	rb := bufio.NewReaderSize(p.r, 1024*16)
 	for {
 
@@ -45,7 +44,7 @@ func (p *parser) parse(h handler.Handler) error {
 	return nil
 }
 
-func (p *parser) parseSql(line string) *model.WalData {
+func (p *parser) parseSql(line string) *model2.WalData {
 	if !strings.HasPrefix(line, "INSERT") {
 		return nil
 	}
@@ -64,7 +63,6 @@ func (p *parser) parseSql(line string) *model.WalData {
 			columns = append(columns, clm.String())
 		}
 		if values, ok := row.Rows.(sqlparser.Values); ok {
-
 			value := values[0]
 			for i, col := range value {
 				name := columns[i]
@@ -75,7 +73,7 @@ func (p *parser) parseSql(line string) *model.WalData {
 					data[name] = nil
 				}
 			}
-			return &model.WalData{OperationType: model.Insert, Schema: row.Table.Qualifier.String(), Table: row.Table.Name.String(), Data: data}
+			return &model2.WalData{OperationType: model2.Insert, Schema: row.Table.Qualifier.String(), Table: row.Table.Name.String(), Data: data}
 		}
 	}
 	return nil

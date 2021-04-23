@@ -1,8 +1,11 @@
-package river
+package core
 
 import (
 	"context"
 	"fmt"
+	dump2 "logical/core/dump"
+	handler2 "logical/core/handler"
+	model2 "logical/core/model"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,9 +14,6 @@ import (
 
 	"github.com/jackc/pgx"
 	"logical/conf"
-	"logical/dump"
-	"logical/handler"
-	"logical/model"
 )
 
 type stream struct {
@@ -25,13 +25,13 @@ type stream struct {
 	// 复制连接
 	replicationConn *pgx.ReplicationConn
 	// 消息处理
-	handler handler.Handler
+	handler handler2.Handler
 	// 取消
 	cancel context.CancelFunc
 	// ack 锁
 	sendStatusLock sync.Mutex
 	// buffered data
-	datas []*model.WalData
+	datas []*model2.WalData
 }
 
 func (s *stream) getReceivedWal() uint64 {
@@ -56,7 +56,7 @@ func (s *stream) getStatus() (*pgx.StandbyStatus, error) {
 
 func newStream(cfg *conf.Config) *stream {
 	var ret = &stream{cfg: cfg}
-	ret.handler = handler.NewHandler(&cfg.Subscribe, ret.setFlushWal)
+	ret.handler = handler2.NewHandler(&cfg.Subscribe, ret.setFlushWal)
 	return ret
 }
 
@@ -105,7 +105,7 @@ func (s *stream) exportSnapshot(snapshotID string) error {
 	if snapshotID == "" || !s.cfg.Subscribe.Historical {
 		return nil
 	}
-	dumper := dump.New(s.cfg.Subscribe.DumpPath, &s.cfg.Subscribe)
+	dumper := dump2.New(s.cfg.Subscribe.DumpPath, &s.cfg.Subscribe)
 	return dumper.Dump(snapshotID, s.handler)
 }
 
@@ -194,7 +194,7 @@ func (s *stream) replicationMsgHandle(msg *pgx.ReplicationMessage) error {
 		}
 	}
 	if msg.WalMessage != nil {
-		logmsg, err := model.Parse(msg.WalMessage)
+		logmsg, err := model2.Parse(msg.WalMessage)
 		if err != nil {
 			return fmt.Errorf("invalid pgoutput msg: %s", err)
 		}
@@ -208,13 +208,13 @@ func (s *stream) replicationMsgHandle(msg *pgx.ReplicationMessage) error {
 	return nil
 }
 
-func (s *stream) handleMessage(data *model.WalData) (err error) {
+func (s *stream) handleMessage(data *model2.WalData) (err error) {
 	var needFlush bool
 	switch data.OperationType {
 	// 事务开始
-	case model.Begin:
+	case model2.Begin:
 	// 	事务结束
-	case model.Commit:
+	case model2.Commit:
 		needFlush = true
 	default:
 		s.datas = append(s.datas, data)

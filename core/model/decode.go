@@ -1,23 +1,21 @@
-
 package model
 
 import (
 	"strconv"
 	"strings"
+	"unsafe"
 
-	"logical/util"
 	"github.com/jackc/pgx"
 	"github.com/nickelser/parselogical"
 )
 
 // Parse test_decoding format wal to WalData
 func Parse(msg *pgx.WalMessage) (*WalData, error) {
-	result := parselogical.NewParseResult(util.Bytes2String(msg.WalData))
+	result := parselogical.NewParseResult(*(*string)(unsafe.Pointer(&msg.WalData)))
 	if err := result.Parse(); err != nil {
 		return nil, err
 	}
 	var ret = NewWalData()
-
 	var schema, table string
 	if result.Relation != "" {
 		i := strings.IndexByte(result.Relation, '.')

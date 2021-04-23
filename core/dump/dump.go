@@ -3,11 +3,11 @@ package dump
 import (
 	"fmt"
 	"io"
+	handler2 "logical/core/handler"
 	"os"
 	"os/exec"
 
 	"logical/conf"
-	"logical/handler"
 )
 
 // Dumper dump database
@@ -26,7 +26,7 @@ func New(pgDump string, sub *conf.SubscribeConfig) *Dumper {
 }
 
 // Dump database with snapshot, parse sql then write to handler
-func (d *Dumper) Dump(snapshotID string, h handler.Handler) error {
+func (d *Dumper) Dump(snapshotID string, h handler2.Handler) error {
 
 	if d.pgDump == "" {
 		return nil
