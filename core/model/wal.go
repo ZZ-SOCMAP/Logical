@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-// WalData represent parsed wal log data
+// WalData represent parsed wal logger data
 type WalData struct {
 	OperationType Operation
 	Schema        string

@@ -1,5 +1,18 @@
 package handler
 
+import (
+	"fmt"
+	"google.golang.org/grpc"
+)
+
+// GetRpcConnect 与预测RPC服务器建立连接
+func GetRpcConnect(host string) (conn *grpc.ClientConn, err error) {
+	if conn, err = grpc.Dial(host, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithReturnConnectionError(), grpc.FailOnNonTempDialError(true)); err != nil {
+		return nil, fmt.Errorf("连接预测服务器失败(%s), 请联系系统管理员", host)
+	}
+	return conn, err
+}
+
 // retry retry util job succeeded or retry count limit exceed
 func retry(retry int, job func() error) error {
 	var count int

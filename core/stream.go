@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	dump2 "logical/core/dump"
 	handler2 "logical/core/handler"
 	model2 "logical/core/model"
@@ -10,15 +11,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"logical/log"
-
 	"github.com/jackc/pgx"
-	"logical/conf"
+	"logical/config"
 )
 
 type stream struct {
 	// 订阅配置
-	cfg *conf.Config
+	cfg *config.Config
 	// 当前 wal 位置
 	receivedWal uint64
 	flushWal    uint64
@@ -31,7 +30,7 @@ type stream struct {
 	// ack 锁
 	sendStatusLock sync.Mutex
 	// buffered data
-	datas []*model2.WalData
+	records []*model2.WalData
 }
 
 func (s *stream) getReceivedWal() uint64 {
@@ -54,40 +53,40 @@ func (s *stream) getStatus() (*pgx.StandbyStatus, error) {
 	return pgx.NewStandbyStatus(s.getReceivedWal(), s.getFlushWal(), s.getFlushWal())
 }
 
-func newStream(cfg *conf.Config) *stream {
+func newStream(cfg *config.Config) *stream {
 	var ret = &stream{cfg: cfg}
-	ret.handler = handler2.NewHandler(&cfg.Subscribe, ret.setFlushWal)
+	ret.handler = handler2.NewHandler(&cfg.Capture, &cfg.Upstream, ret.setFlushWal)
 	return ret
 }
 
 func (s *stream) start(ctx context.Context, wg *sync.WaitGroup) (err error) {
 	defer wg.Done()
-	log.Logger.Infof("start stream for %s", s.cfg.Subscribe.SlotName)
+	zap.L().Info("start stream...", zap.String("slot", s.cfg.Capture.SlotName))
 	ctx, s.cancel = context.WithCancel(ctx)
-	config := pgx.ConnConfig{Host: s.cfg.Subscribe.DbHost, Port: s.cfg.Subscribe.DbPort, Database: s.cfg.Subscribe.DbName, User: s.cfg.Subscribe.DbUser, Password: s.cfg.Subscribe.DbPass}
-	s.replicationConn, err = pgx.ReplicationConnect(config)
+	var cfg = pgx.ConnConfig{Host: s.cfg.Capture.DbHost, Port: s.cfg.Capture.DbPort, Database: s.cfg.Capture.DbName, User: s.cfg.Capture.DbUser, Password: s.cfg.Capture.DbPass}
+	s.replicationConn, err = pgx.ReplicationConnect(cfg)
 	if err != nil {
-		log.Logger.Errorf("create replication connection err: %v", err)
+		zap.L().Error("create replication connection err", zap.Error(err))
 		return err
 	}
-	_, snapshotID, err := s.replicationConn.CreateReplicationSlotEx(s.cfg.Subscribe.SlotName, "test_decoding")
+	_, snapshotid, err := s.replicationConn.CreateReplicationSlotEx(s.cfg.Capture.SlotName, "test_decoding")
 	if err != nil {
 		// 42710 means replication slot already exists
 		if pgerr, ok := err.(pgx.PgError); !ok || pgerr.Code != "42710" {
-			log.Logger.Errorf("create replication slot err: %v", err)
+			zap.L().Error("create replication slot err: %v", zap.Error(err))
 			return fmt.Errorf("failed to create replication slot: %s", err)
 		}
 	}
 
 	_ = s.heartbeat()
 	// Handle old data from db
-	if err := s.exportSnapshot(snapshotID); err != nil {
-		log.Logger.Errorf("export snapshot %s err: %v", snapshotID, err)
-		return fmt.Errorf("slot name %s, err export snapshot: %v", s.cfg.Subscribe.SlotName, err)
+	if err = s.exportSnapshot(snapshotid); err != nil {
+		zap.L().Error("export snapshot %s err: %v", zap.String("snapshotid", snapshotid), zap.Error(err))
+		return fmt.Errorf("slot name %s, err export snapshot: %v", s.cfg.Capture.SlotName, err)
 	}
 
-	if err = s.replicationConn.StartReplication(s.cfg.Subscribe.SlotName, 0, -1); err != nil {
-		log.Logger.Errorf("start replication err: %v", err)
+	if err = s.replicationConn.StartReplication(s.cfg.Capture.SlotName, 0, -1); err != nil {
+		zap.L().Error("start replication err", zap.Error(err))
 		return err
 	}
 
@@ -102,10 +101,10 @@ func (s *stream) stop() error {
 
 func (s *stream) exportSnapshot(snapshotID string) error {
 	// replication slot already exists
-	if snapshotID == "" || !s.cfg.Subscribe.Historical {
+	if snapshotID == "" || !s.cfg.Capture.Historical {
 		return nil
 	}
-	dumper := dump2.New(s.cfg.Subscribe.DumpPath, &s.cfg.Subscribe)
+	dumper := dump2.New(s.cfg.Capture.DumpPath, &s.cfg.Capture)
 	return dumper.Dump(snapshotID, s.handler)
 }
 
@@ -130,8 +129,8 @@ func (s *stream) runloop(ctx context.Context) error {
 			if err == ctx.Err() {
 				return err
 			}
-			if err := s.checkAndResetConn(); err != nil {
-				log.Logger.Errorf("reset replication connection err: %v", err)
+			if err = s.checkAndResetConn(); err != nil {
+				zap.L().Error("reset replication connection err", zap.Error(err))
 			}
 			continue
 		}
@@ -140,8 +139,8 @@ func (s *stream) runloop(ctx context.Context) error {
 			continue
 		}
 
-		if err := s.replicationMsgHandle(msg); err != nil {
-			log.Logger.Errorf("handle replication msg err: %v", err)
+		if err = s.replicationMsgHandle(msg); err != nil {
+			zap.L().Error("handle replication msg err", zap.Error(err))
 			continue
 		}
 	}
@@ -151,28 +150,25 @@ func (s *stream) checkAndResetConn() error {
 	if s.replicationConn != nil && s.replicationConn.IsAlive() {
 		return nil
 	}
-
 	time.Sleep(time.Second * 10)
-
-	config := pgx.ConnConfig{
-		Host:     s.cfg.Subscribe.DbHost,
-		Port:     s.cfg.Subscribe.DbPort,
-		Database: s.cfg.Subscribe.DbName,
-		User:     s.cfg.Subscribe.DbUser,
-		Password: s.cfg.Subscribe.DbPass,
+	var cfg = pgx.ConnConfig{
+		Host:     s.cfg.Capture.DbHost,
+		Port:     s.cfg.Capture.DbPort,
+		Database: s.cfg.Capture.DbName,
+		User:     s.cfg.Capture.DbUser,
+		Password: s.cfg.Capture.DbPass,
 	}
-	conn, err := pgx.ReplicationConnect(config)
+	conn, err := pgx.ReplicationConnect(cfg)
 	if err != nil {
 		return err
 	}
-
-	if _, _, err := conn.CreateReplicationSlotEx(s.cfg.Subscribe.SlotName, "test_decoding"); err != nil {
+	if _, _, err := conn.CreateReplicationSlotEx(s.cfg.Capture.SlotName, "test_decoding"); err != nil {
 		if pgerr, ok := err.(pgx.PgError); !ok || pgerr.Code != "42710" {
 			return fmt.Errorf("failed to create replication slot: %s", err)
 		}
 	}
 
-	if err := conn.StartReplication(s.cfg.Subscribe.SlotName, 0, -1); err != nil {
+	if err := conn.StartReplication(s.cfg.Capture.SlotName, 0, -1); err != nil {
 		_ = conn.Close()
 		return err
 	}
@@ -209,20 +205,20 @@ func (s *stream) replicationMsgHandle(msg *pgx.ReplicationMessage) error {
 }
 
 func (s *stream) handleMessage(data *model2.WalData) (err error) {
-	var needFlush bool
+	var flush bool
 	switch data.OperationType {
 	// 事务开始
 	case model2.Begin:
 	// 	事务结束
 	case model2.Commit:
-		needFlush = true
+		flush = true
 	default:
-		s.datas = append(s.datas, data)
+		s.records = append(s.records, data)
 		// 防止大事务耗尽内存
-		needFlush = len(s.datas) > 1000
+		flush = len(s.records) > 1000
 	}
 
-	if needFlush {
+	if flush {
 		_ = s.flush()
 	}
 
@@ -230,9 +226,9 @@ func (s *stream) handleMessage(data *model2.WalData) (err error) {
 }
 
 func (s *stream) flush() error {
-	if len(s.datas) > 0 {
-		_ = s.handler.Handle(s.datas...)
-		s.datas = nil
+	if len(s.records) > 0 {
+		_ = s.handler.Handle(s.records...)
+		s.records = nil
 	}
 	return nil
 }
@@ -241,7 +237,7 @@ func (s *stream) flush() error {
 func (s *stream) heartbeat() error {
 	s.sendStatusLock.Lock()
 	defer s.sendStatusLock.Unlock()
-	log.Logger.Debug("send heartbeat")
+	zap.L().Debug("send heartbeat")
 	status, err := s.getStatus()
 	if err != nil {
 		return err

@@ -7,56 +7,49 @@ import (
 	"os"
 	"os/exec"
 
-	"logical/conf"
+	"logical/config"
 )
 
 // Dumper dump database
 type Dumper struct {
-	pgDump string
-	sub    *conf.SubscribeConfig
+	dump    string
+	capture *config.Capture
 }
 
 // New create a Dumper
-func New(pgDump string, sub *conf.SubscribeConfig) *Dumper {
+func New(pgDump string, sub *config.Capture) *Dumper {
 	if pgDump == "" {
 		pgDump = "pg_dump"
 	}
 	path, _ := exec.LookPath(pgDump)
-	return &Dumper{pgDump: path, sub: sub}
+	return &Dumper{dump: path, capture: sub}
 }
 
 // Dump database with snapshot, parse sql then write to handler
 func (d *Dumper) Dump(snapshotID string, h handler2.Handler) error {
-
-	if d.pgDump == "" {
+	if d.dump == "" {
 		return nil
 	}
-
 	args := make([]string, 0, 16)
-
 	// Common args
-	args = append(args, fmt.Sprintf("--host=%s", d.sub.DbHost))
-	args = append(args, fmt.Sprintf("--port=%d", d.sub.DbPort))
-	args = append(args, fmt.Sprintf("--username=%s", d.sub.DbUser))
-	args = append(args, d.sub.DbName)
+	args = append(args, fmt.Sprintf("--host=%s", d.capture.DbHost))
+	args = append(args, fmt.Sprintf("--port=%d", d.capture.DbPort))
+	args = append(args, fmt.Sprintf("--username=%s", d.capture.DbUser))
+	args = append(args, d.capture.DbName)
 	args = append(args, "--data-only")
 	args = append(args, "--column-inserts")
-	//args = append(args, fmt.Sprintf("--schema=%s", d.sub.Schema))
-	for _, rule := range d.sub.Tables {
-		args = append(args, fmt.Sprintf(`--table=%s`, rule))
+	for i := 0; i < len(d.capture.Tables); i++ {
+		args = append(args, fmt.Sprintf(`--table=%s`, d.capture.Tables[i]))
 	}
 	args = append(args, fmt.Sprintf("--snapshot=%s", snapshotID))
-
-	cmd := exec.Command(d.pgDump, args...)
-	if d.sub.DbPass != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("PGPASSWORD=%s", d.sub.DbPass))
+	cmd := exec.Command(d.dump, args...)
+	if d.capture.DbPass != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("PGPASSWORD=%s", d.capture.DbPass))
 	}
-	r, w := io.Pipe()
-
+	var r, w = io.Pipe()
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
-
-	errCh := make(chan error)
+	var errCh = make(chan error)
 	parser := newParser(r)
 	go func() {
 		err := parser.parse(h)
