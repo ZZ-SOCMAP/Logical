@@ -17,8 +17,8 @@ type handlerWrapper struct {
 	maxPos    uint64
 	callback  PosCallback
 	sub       *conf.Subscribe
-	rules     []*conf.Rule
-	ruleCache map[string]*conf.Rule
+	rules     []string
+	ruleCache map[string]string
 	skipCache map[string]struct{}
 	cancel    context.CancelFunc
 	done      chan struct{}
@@ -80,7 +80,7 @@ func (h *handlerWrapper) flush() (err error) {
 	return h.output.Write(h.records...)
 }
 
-func (h *handlerWrapper) filterData(data *model.WalData) (matchedRule *conf.Rule, matched bool) {
+func (h *handlerWrapper) filterData(data *model.WalData) (matchedRule string, matched bool) {
 	if len(data.Data) == 0 {
 		return
 	}
@@ -92,7 +92,7 @@ func (h *handlerWrapper) filterData(data *model.WalData) (matchedRule *conf.Rule
 	matchedRule, matched = h.ruleCache[data.Table]
 	if !matched {
 		for _, rule := range h.rules {
-			if util.MatchSimple(rule.Table, data.Table) {
+			if util.MatchSimple(rule, data.Table) {
 				matched = true
 				matchedRule = rule
 				break

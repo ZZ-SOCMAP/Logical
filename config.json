@@ -11,24 +11,7 @@
         "user": "itcp",
         "password": "123456"
       },
-      "rules": [
-        {
-          "table": "organization",
-          "pks": [
-            "id"
-          ],
-          "esid": [
-            "uuid"
-          ],
-          "index": "units",
-          "type": "logs"
-        }
-      ],
-      "esConf": {
-        "addrs": "http://localhost:9200",
-        "user": "",
-        "password": ""
-      },
+      "rules": ["organization"],
       "retry": 3
     }
   ],
