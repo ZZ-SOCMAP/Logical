@@ -1,12 +1,11 @@
-package river
+package core
 
 import (
 	"context"
 	"sync"
 
-	"logical/log"
-
 	"logical/conf"
+	"logical/log"
 )
 
 // this is a static check
@@ -40,7 +39,7 @@ func (r *river) Start() error {
 		stream := newStream(r.conf)
 		go func() { _ = stream.start(r.ctx, r.wg) }()
 	}
-	log.Logger.Info("start amazon...")
+	log.Logger.Info("start logical...")
 	return nil
 }
 
@@ -51,7 +50,7 @@ func (r *river) Update(config *conf.Config) {
 	r.wg = new(sync.WaitGroup)
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.wg.Add(1)
-	stream := newStream(r.conf)
+	var stream = newStream(r.conf)
 	go func() { _ = stream.start(r.ctx, r.wg) }()
 }
 

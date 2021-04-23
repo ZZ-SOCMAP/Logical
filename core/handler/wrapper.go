@@ -2,18 +2,16 @@ package handler
 
 import (
 	"context"
+	model2 "logical/core/model"
 	"time"
 
 	"logical/conf"
-	"logical/handler/output"
-	"logical/model"
-	"logical/util"
 )
 
-type handlerWrapper struct {
-	output    output.Output
-	dataCh    chan []*model.WalData
-	records   []*model.WalData
+type wrapper struct {
+	output    Output
+	dataCh    chan []*model2.WalData
+	records   []*model2.WalData
 	maxPos    uint64
 	callback  PosCallback
 	sub       *conf.SubscribeConfig
@@ -24,7 +22,7 @@ type handlerWrapper struct {
 	done      chan struct{}
 }
 
-func (h *handlerWrapper) runloop(ctx context.Context) {
+func (h *wrapper) runloop(ctx context.Context) {
 	defer close(h.done)
 
 	timer := time.NewTimer(time.Second)
@@ -67,7 +65,7 @@ func resetTimer(t *time.Timer, d time.Duration) {
 	t.Reset(d)
 }
 
-func (h *handlerWrapper) flush() (err error) {
+func (h *wrapper) flush() (err error) {
 	defer func() {
 		h.callback(h.maxPos)
 		h.records = nil
@@ -80,19 +78,17 @@ func (h *handlerWrapper) flush() (err error) {
 	return h.output.Write(h.records...)
 }
 
-func (h *handlerWrapper) filterData(data *model.WalData) (matchedRule string, matched bool) {
+func (h *wrapper) filterData(data *model2.WalData) (matchedRule string, matched bool) {
 	if len(data.Data) == 0 {
 		return
 	}
-
 	if _, skip := h.skipCache[data.Table]; skip {
 		return
 	}
-
 	matchedRule, matched = h.ruleCache[data.Table]
 	if !matched {
 		for _, rule := range h.rules {
-			if util.MatchSimple(rule, data.Table) {
+			if match(rule, data.Table) {
 				matched = true
 				matchedRule = rule
 				break
@@ -109,12 +105,12 @@ func (h *handlerWrapper) filterData(data *model.WalData) (matchedRule string, ma
 	return
 }
 
-func (h *handlerWrapper) Handle(records ...*model.WalData) error {
+func (h *wrapper) Handle(records ...*model2.WalData) error {
 	h.dataCh <- records
 	return nil
 }
 
-func (h *handlerWrapper) Stop() {
+func (h *wrapper) Stop() {
 	h.cancel()
 	<-h.done
 	h.output.Close()
