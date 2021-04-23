@@ -13,11 +13,11 @@ import (
 // Dumper dump database
 type Dumper struct {
 	pgDump string
-	sub    *conf.Subscribe
+	sub    *conf.SubscribeConfig
 }
 
 // New create a Dumper
-func New(pgDump string, sub *conf.Subscribe) *Dumper {
+func New(pgDump string, sub *conf.SubscribeConfig) *Dumper {
 	if pgDump == "" {
 		pgDump = "pg_dump"
 	}
@@ -35,21 +35,21 @@ func (d *Dumper) Dump(snapshotID string, h handler.Handler) error {
 	args := make([]string, 0, 16)
 
 	// Common args
-	args = append(args, fmt.Sprintf("--host=%s", d.sub.PGConnConf.Host))
-	args = append(args, fmt.Sprintf("--port=%d", d.sub.PGConnConf.Port))
-	args = append(args, fmt.Sprintf("--username=%s", d.sub.PGConnConf.User))
-	args = append(args, d.sub.PGConnConf.Database)
+	args = append(args, fmt.Sprintf("--host=%s", d.sub.DbHost))
+	args = append(args, fmt.Sprintf("--port=%d", d.sub.DbPort))
+	args = append(args, fmt.Sprintf("--username=%s", d.sub.DbUser))
+	args = append(args, d.sub.DbName)
 	args = append(args, "--data-only")
 	args = append(args, "--column-inserts")
-	args = append(args, fmt.Sprintf("--schema=%s", d.sub.PGConnConf.Schema))
-	for _, rule := range d.sub.Rules {
+	//args = append(args, fmt.Sprintf("--schema=%s", d.sub.Schema))
+	for _, rule := range d.sub.Tables {
 		args = append(args, fmt.Sprintf(`--table=%s`, rule))
 	}
 	args = append(args, fmt.Sprintf("--snapshot=%s", snapshotID))
 
 	cmd := exec.Command(d.pgDump, args...)
-	if d.sub.PGConnConf.Password != "" {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("PGPASSWORD=%s", d.sub.PGConnConf.Password))
+	if d.sub.DbPass != "" {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("PGPASSWORD=%s", d.sub.DbPass))
 	}
 	r, w := io.Pipe()
 
@@ -64,7 +64,7 @@ func (d *Dumper) Dump(snapshotID string, h handler.Handler) error {
 	}()
 
 	err := cmd.Run()
-	w.CloseWithError(err)
+	_ = w.CloseWithError(err)
 
 	err = <-errCh
 	return err
