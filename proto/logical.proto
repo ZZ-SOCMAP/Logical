@@ -7,7 +7,7 @@ message ping_message {}
 message call_message {
   string table = 1;
   string operate = 2;
-  string key = 3;
+  int64 id = 3;
 }
 
 message reply {
@@ -17,5 +17,5 @@ message reply {
 
 service LogicalHandler {
   rpc ping(ping_message) returns (reply);
-  rpc call(stream call_message) returns (reply);
+  rpc call(call_message) returns (reply);
 }

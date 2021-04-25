@@ -16,7 +16,6 @@ type Capture struct {
 	DbName     string   `yaml:"db_name"`
 	DbUser     string   `yaml:"db_user"`
 	DbPass     string   `yaml:"db_pass"`
-	DbKey      string   `yaml:"db_key"`
 	SlotName   string   `yaml:"slot_name"`
 	Tables     []string `yaml:"tables"`
 }
