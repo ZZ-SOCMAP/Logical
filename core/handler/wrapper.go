@@ -43,11 +43,9 @@ func (h *wrapper) runloop(ctx context.Context) {
 					data.Rule = rule
 					h.records = append(h.records, data)
 				}
-
 			}
 			flush = len(h.records) >= 20000
 		}
-
 		if flush {
 			_ = h.flush()
 			resetTimer(timer, time.Second)
@@ -69,11 +67,9 @@ func (h *wrapper) flush() (err error) {
 		h.callback(h.maxPos)
 		h.records = nil
 	}()
-
 	if len(h.records) == 0 {
 		return nil
 	}
-
 	return h.output.Write(h.records...)
 }
 

@@ -42,7 +42,7 @@ func pingUpstream(upstream *config.Upstream) error {
 	}()
 	reply, err := client.Ping(ctx, &proto.PingMessage{})
 	if err != nil || reply.Status != true {
-		return fmt.Errorf("some upstream health checks have failed: %s", upstream)
+		return fmt.Errorf("some upstream health checks have failed: %s", upstream.Host)
 	}
 	return nil
 }

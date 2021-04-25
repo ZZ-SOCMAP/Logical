@@ -31,7 +31,6 @@ func (d *Dumper) Dump(snapshotID string, h handler2.Handler) error {
 		return nil
 	}
 	args := make([]string, 0, 16)
-	// Common args
 	args = append(args, fmt.Sprintf("--host=%s", d.capture.DbHost))
 	args = append(args, fmt.Sprintf("--port=%d", d.capture.DbPort))
 	args = append(args, fmt.Sprintf("--username=%s", d.capture.DbUser))
@@ -50,15 +49,13 @@ func (d *Dumper) Dump(snapshotID string, h handler2.Handler) error {
 	cmd.Stdout = w
 	cmd.Stderr = os.Stderr
 	var errCh = make(chan error)
-	parser := newParser(r)
+	var parser = newParser(r)
 	go func() {
 		err := parser.parse(h)
 		errCh <- err
 	}()
-
 	err := cmd.Run()
 	_ = w.CloseWithError(err)
-
 	err = <-errCh
 	return err
 }
