@@ -1,6 +1,5 @@
 # logical
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/yanmengfei/logical)](https://goreportcard.com/badge/github.com/yanmengfei/logical)
 [![golang](https://img.shields.io/badge/Language-Go-green.svg?style=flat)](https://golang.org)
 [![GoDoc](https://godoc.org/github.com/yanmengfei/logical?status.svg)](https://godoc.org/github.com/yanmengfei/logical)
 [![GitHub release](https://img.shields.io/github/release/yanmengfei/logical.svg)](https://github.com/yanmengfei/logical/releases)
@@ -18,7 +17,7 @@ Postgresql 10.0+
 Choose the file matching the destination platform from the [downloads page](https://github.com/yanmengfei/logical/releases), copy the URL and replace the URL within the commands below:
 
 ```shell
-wget -O logical `URL`
+wget -O logical https://github.com/yanmengfei/logical/releases/download/v0.1.0/logical_linux_0.1.0
 chmod +x logical
 ```
 
@@ -66,7 +65,9 @@ host dbname user address md5 # example: `host units itcp 172.30.0.1/24 md5`
 ```
 
 ### Run
-```
+> You need to start the upstream service first, [example](./example)
+
+```shell
 ./logical --config config.yaml
 ```
 
