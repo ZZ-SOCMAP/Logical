@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package proto;
+
+message ping_message {}
+
+message call_message {
+  string table = 1;
+  string operate = 2;
+  int64 id = 3;
+}
+
+message reply {
+  bool status = 1;
+  string message = 2;
+}
+
+service LogicalHandler {
+  rpc ping(ping_message) returns (reply);
+  rpc call(call_message) returns (reply);
+}
