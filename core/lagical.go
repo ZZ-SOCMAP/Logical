@@ -2,59 +2,58 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"github.com/jackc/pgx"
 	"go.uber.org/zap"
+	"logical/core/engine"
 	"sync"
 
 	"logical/config"
 )
 
-// this is a static check
-var _ Interface = (*river)(nil)
-
-// Interface of river
-type Interface interface {
-	Start() error
-	Stop()
-	Update(config *config.Config)
-}
-
-type river struct {
-	conf   *config.Config
+type logical struct {
+	cfg    *config.Config
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     *sync.WaitGroup
 }
 
-// New create river from config
-func New(conf *config.Config) Interface {
-	return &river{conf: conf}
+func New(cfg *config.Config) *logical {
+	return &logical{cfg: cfg}
 }
 
-// Start flow the river
-func (r *river) Start() error {
-	r.wg = new(sync.WaitGroup)
-	r.ctx, r.cancel = context.WithCancel(context.Background())
-	if r.conf != nil {
-		r.wg.Add(1)
-		var stream = newStream(r.conf)
-		go func() { _ = stream.start(r.ctx, r.wg) }()
+func (l *logical) Start() error {
+	// test database availability
+	var dbCfg = pgx.ConnConfig{
+		Host:     l.cfg.Capture.Database.Host,
+		Port:     l.cfg.Capture.Database.Port,
+		Database: l.cfg.Capture.Database.Name,
+		User:     l.cfg.Capture.Database.Username,
+		Password: l.cfg.Capture.Database.Password,
 	}
-	zap.L().Info("start logical...")
+	conn, err := pgx.ReplicationConnect(dbCfg)
+	if err != nil {
+		return fmt.Errorf("connect database: %s", err)
+	}
+	_ = conn.Close()
+
+	// start core program
+	l.wg = new(sync.WaitGroup)
+	l.ctx, l.cancel = context.WithCancel(context.Background())
+	for i := 0; i < len(l.cfg.Capture.Tables); i++ {
+		var table = l.cfg.Capture.Tables[i]
+		if l.cfg.Capture.Tables[i].Outputs == nil {
+			zap.L().Warn("empty output, skipped", zap.String("table", table.Name))
+			continue
+		}
+		l.wg.Add(1)
+		s := engine.New(dbCfg, &table, &l.cfg.Output)
+		go func() {
+			defer l.wg.Done()
+			if err = s.Start(l.ctx, table.Name, l.cfg.Capture.DumpPath, l.cfg.Capture.Historical); err != nil {
+				zap.L().Error("start engine error", zap.Error(err), zap.String("table", table.Name))
+			}
+		}()
+	}
 	return nil
-}
-
-func (r *river) Update(config *config.Config) {
-	// stop running streams
-	r.Stop()
-	r.conf = config
-	r.wg = new(sync.WaitGroup)
-	r.ctx, r.cancel = context.WithCancel(context.Background())
-	r.wg.Add(1)
-	var stream = newStream(r.conf)
-	go func() { _ = stream.start(r.ctx, r.wg) }()
-}
-
-func (r *river) Stop() {
-	r.cancel()
-	r.wg.Wait()
 }

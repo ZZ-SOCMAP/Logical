@@ -1,0 +1,57 @@
+# capture config
+[capture]
+dump_path = "/usr/local/bin/pg_dump" # pg_dump command path
+historical = true # dump historical data
+
+# capture database
+[capture.database]
+host = "127.0.0.1"
+port = 5432
+name = "asset_intel"
+username = "itcp"
+password = "123456"
+
+
+# capture tables
+[[capture.tables]]
+name = "task" # table name
+pk = "id" # primary key field name
+fields = ["title", "value"]  # output fields
+slotname = "slot_localhost_todo_task" # replication slot name, unique
+outputs = ["elasticsearch"] # outputs
+
+# capture tables
+[[capture.tables]]
+name = "user"
+pk = "id"
+fields = ["name", "other"]
+slotname = "slot_localhost_todo_user"
+outputs = ["rabbitmq", "elasticsearch"]
+
+# logs
+[logger]
+maxsize = 100 # max log file size
+maxage = 7 # log retention days
+backup = 10 # old log files
+level = "debug" # log level
+path = "logs/logical.log" # save path
+
+[output.elasticsearch]
+index = "iowork"
+#username = "elastic"
+#password = "password"
+hosts = ["http://127.0.0.1:9200"]
+
+[output.rabbitmq]
+url = "amqp://admin:123456@127.0.0.1:5672/tasks"
+queue = "test"
+
+[output.kafka]
+hosts = ["127.0.0.1:9092"]
+topic = "tasks"
+
+[output.restapi]
+url = "http://127.0.0.1:8888/todo" # post / json
+
+[output.mongo]
+url = "mongodb://127.0.0.1:27017"
