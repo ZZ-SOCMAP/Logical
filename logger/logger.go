@@ -9,61 +9,48 @@ import (
 	"os"
 )
 
-// initLogger 初始化日志配置
+// initLogger init logger configuration
 func initLogger(level string, writer io.Writer, encoder zapcore.Encoder) (err error) {
 	var loggerLevel = new(zapcore.Level)
-	err = loggerLevel.UnmarshalText([]byte(level))
-	if err != nil {
-		return
+	if err = loggerLevel.UnmarshalText([]byte(level)); err != nil {
+		return err
 	}
 	core := zapcore.NewCore(encoder, zapcore.AddSync(writer), loggerLevel)
-	// 替换zap包中全局的logger实例，使用直接调用 zap.L()
 	zap.ReplaceGlobals(zap.New(core, zap.AddCaller()))
-	return err
+	return nil
 }
 
-// InitDebugLogger 日志设置为控制台标准输出
-func InitDebugLogger(cfg *config.Logger) (err error) {
+// InitDebugLogger log set to console standard output
+func InitDebugLogger(cfg *config.LoggerConfig) (err error) {
 	return initLogger(
-		cfg.Level,
-		os.Stdout,
+		cfg.Level, os.Stdout,
 		zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()),
 	)
 }
 
-// InitReleaseLogger 日志格式化为json并输出到日志
-func InitReleaseLogger(cfg *config.Logger) (err error) {
+// InitReleaseLogger the log is formatted as json and output to the log
+func InitReleaseLogger(cfg *config.LoggerConfig) (err error) {
 	return initLogger(
 		cfg.Level,
-		newReleaseWriter(cfg.Savepath, cfg.Maxsize, cfg.MaxBackup, cfg.MaxAge),
-		zapcore.NewJSONEncoder(newReleaseEncoderConfig()),
+		&lumberjack.Logger{
+			Filename:   cfg.Path,
+			MaxSize:    cfg.MaxSize,
+			MaxBackups: cfg.Backup,
+			MaxAge:     cfg.MaxAge,
+		},
+		zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+			TimeKey:        "time",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			FunctionKey:    zapcore.OmitKey,
+			MessageKey:     "message",
+			StacktraceKey:  "stacktrace",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.TimeEncoderOfLayout(config.TimeLayout),
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		}),
 	)
-}
-
-// NewReleaseEncoderConfig 生产环境下的日志环境配置
-func newReleaseEncoderConfig() zapcore.EncoderConfig {
-	return zapcore.EncoderConfig{
-		TimeKey:        "time",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		FunctionKey:    zapcore.OmitKey,
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
-}
-
-// NewReleaseWriter 生产环境下，将日志输出到文件(自动分块)
-func newReleaseWriter(filename string, maxSize, maxBackup, maxAge int) io.Writer {
-	return &lumberjack.Logger{
-		Filename:   filename,
-		MaxSize:    maxSize,
-		MaxBackups: maxBackup,
-		MaxAge:     maxAge,
-	}
 }
