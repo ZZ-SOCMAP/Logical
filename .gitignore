@@ -137,4 +137,3 @@ logs/
 
 # End of https://www.gitignore.io/api/go,osx,linux,windows,sublimetext,visualstudiocode
 .idea/
-config.yaml
