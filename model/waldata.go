@@ -1,11 +1,9 @@
 package model
 
 import (
-	"fmt"
 	"github.com/jackc/pgx"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/nickelser/parselogical"
-	"logical/config"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,37 +11,15 @@ import (
 	"unsafe"
 )
 
-type Operate uint8
+const datelayout = "2006-01-02 15:04:05"
 
-const (
-	UNKNOW Operate = iota
-	BEGIN
-	INSERT
-	DELETE
-	UPDATE
-	COMMIT
+var (
+	json     = jsoniter.ConfigCompatibleWithStandardLibrary
+	datapool = sync.Pool{New: func() interface{} { return new(Waldata) }}
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
-
-var operate = sync.Map{}
-var unoperate = [6]string{"UNKNOW", "BEGIN", "INSERT", "DELETE", "UPDATE", "COMMIT"}
-
-func init() {
-	operate.Store("INSERT", INSERT)
-	operate.Store("UPDATE", UPDATE)
-	operate.Store("DELETE", DELETE)
-	operate.Store("BEGIN", BEGIN)
-	operate.Store("COMMIT", COMMIT)
-	operate.Store("UNKNOW", UNKNOW)
-}
-
-func (o Operate) String() string {
-	return unoperate[int(o)]
-}
-
-// WalData represent parsed wal logger data
-type WalData struct {
+// Waldata represent parsed wal logger data
+type Waldata struct {
 	OperationType Operate
 	Schema        string
 	Table         string
@@ -53,31 +29,7 @@ type WalData struct {
 	Rule          string
 }
 
-// Reset for reuse
-func (w *WalData) Reset() {
-	w.OperationType = UNKNOW
-	w.Schema = ""
-	w.Table = ""
-	w.Data = nil
-	w.Timestamp = 0
-	w.Pos = 0
-	w.Rule = ""
-}
-
-// reusing data objects, reduce the pressure of Garbage Collection
-var pool = sync.Pool{New: func() interface{} { return &WalData{} }}
-
-func NewData() *WalData {
-	data := pool.Get().(*WalData)
-	data.Reset()
-	return data
-}
-
-func PutData(data *WalData) {
-	pool.Put(data)
-}
-
-func (w *WalData) Decode(wal *pgx.WalMessage, tableCfg *config.CaptureTableConfig) error {
+func (w *Waldata) Decode(wal *pgx.WalMessage, tableName string) error {
 	result := parselogical.NewParseResult(*(*string)(unsafe.Pointer(&wal.WalData)))
 	if err := result.Parse(); err != nil {
 		return err
@@ -92,7 +44,7 @@ func (w *WalData) Decode(wal *pgx.WalMessage, tableCfg *config.CaptureTableConfi
 			table = strings.ReplaceAll(result.Relation[i+1:], `"`, "")
 		}
 		// table name based filtering
-		if table != tableCfg.Name {
+		if table != tableName {
 			return nil
 		}
 		w.Schema = schema
@@ -110,9 +62,6 @@ func (w *WalData) Decode(wal *pgx.WalMessage, tableCfg *config.CaptureTableConfi
 	}
 	w.Data = make(map[string]interface{}, len(result.Columns))
 	for key, cell := range result.Columns {
-		if _, ok = tableCfg.Rule[key]; !ok {
-			continue
-		}
 		var value interface{}
 		if cell.Value != "null" {
 			switch cell.Type {
@@ -128,14 +77,28 @@ func (w *WalData) Decode(wal *pgx.WalMessage, tableCfg *config.CaptureTableConfi
 				value = make(map[string]interface{})
 				_ = json.UnmarshalFromString(cell.Value, &value)
 			case "timestamp without time zone":
-				value, _ = time.Parse(config.TimeLayout, cell.Value)
+				value, _ = time.Parse(datelayout, cell.Value)
 			default:
 				value = cell.Value
 			}
 		}
 		w.Data[key] = value
 	}
-	w.Data["pk"] = fmt.Sprintf("%v", w.Data[tableCfg.Pk])
 	w.Data["operate"] = w.OperationType.String()
 	return nil
+}
+
+func AcquireWaldata() *Waldata {
+	return datapool.Get().(*Waldata)
+}
+
+func ReleaseWaldata(waldata *Waldata) {
+	waldata.OperationType = UNKNOW
+	waldata.Schema = ""
+	waldata.Table = ""
+	waldata.Data = nil
+	waldata.Timestamp = 0
+	waldata.Pos = 0
+	waldata.Rule = ""
+	datapool.Put(waldata)
 }
