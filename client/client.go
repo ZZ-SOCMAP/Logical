@@ -3,12 +3,13 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx"
-	"logical/config"
-	"logical/model"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/jackc/pgx"
+	"github.com/yanmengfei/logical/config"
+	"github.com/yanmengfei/logical/model"
 )
 
 type client struct {

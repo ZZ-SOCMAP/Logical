@@ -1,14 +1,15 @@
 package model
 
 import (
-	"github.com/jackc/pgx"
-	jsoniter "github.com/json-iterator/go"
-	"github.com/nickelser/parselogical"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"unsafe"
+
+	"github.com/jackc/pgx"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/nickelser/parselogical"
 )
 
 const datelayout = "2006-01-02 15:04:05"
