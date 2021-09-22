@@ -1,4 +1,4 @@
-module logical
+module github.com/yanmengfei/logical
 
 go 1.16
 
