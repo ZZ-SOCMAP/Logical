@@ -40,11 +40,12 @@ go get github.com/yanmengfei/logical
 package main
 
 import (
-    "context"
-    "fmt"
-    "github.com/yanmengfei/logical/client"
-    "github.com/yanmengfei/logical/config"
-    "github.com/yanmengfei/logical/model"
+	"context"
+	"fmt"
+
+	"github.com/jackc/pgx"
+	"github.com/yanmengfei/logical/client"
+	"github.com/yanmengfei/logical/model"
 )
 
 func callback(records []*model.Waldata) {
@@ -56,18 +57,16 @@ func callback(records []*model.Waldata) {
 }
 
 func main() {
-    dbCfg := &config.DatabaseConfig{
-        Username: "itmeng",
-        Password: "postgres_logical",
-        Port:     5432,
-        DbName:   "webstore",
+    cfg := pgx.ConnConfig{
         Host:     "127.0.0.1",
+        Port:     5432,
+        User:     "itmeng",
+        Password: "postgres_logical",
+        Database: "webstore",
     }
-    tbCfg := &config.TableConfig{
-        Name:     "book",
-        SlotName: "book_cache_slot",
-    }
-    c, err := client.New(dbCfg, tbCfg, callback)
+    table := "book"
+    slot := "book_cache_slot"
+    c, err := client.New(cfg, table, slot, callback)
     if err != nil {
         panic(err)
     }
