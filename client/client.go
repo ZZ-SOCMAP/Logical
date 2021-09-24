@@ -8,31 +8,27 @@ import (
 	"time"
 
 	"github.com/jackc/pgx"
-	"github.com/yanmengfei/logical/config"
 	"github.com/yanmengfei/logical/model"
 )
 
+// client for logical
 type client struct {
-	connCfg         pgx.ConnConfig
-	tableCfg        *config.TableConfig
+	cfg             pgx.ConnConfig
+	table           string
+	slot            string
 	repConn         *pgx.ReplicationConn
 	cancel          context.CancelFunc
 	mutex           sync.Mutex
 	receivePosition uint64
 	replyPosition   uint64
+	maxPosition     uint64
 	callback        func(records []*model.Waldata)
 	records         []*model.Waldata
 }
 
-func New(dbCfg *config.DatabaseConfig, tbCfg *config.TableConfig, callback func(records []*model.Waldata)) (*client, error) {
-	connCfg := pgx.ConnConfig{
-		Host:     dbCfg.Host,
-		Port:     dbCfg.Port,
-		Database: dbCfg.DbName,
-		User:     dbCfg.Username,
-		Password: dbCfg.Password,
-	}
-	return &client{connCfg: connCfg, tableCfg: tbCfg, callback: callback}, nil
+// New client
+func New(cfg pgx.ConnConfig, table, slot string, callback func(records []*model.Waldata)) (*client, error) {
+	return &client{cfg: cfg, table: table, slot: slot, callback: callback}, nil
 }
 
 // getReceivePosition get receive position
@@ -55,6 +51,7 @@ func (c *client) setReplyPosition(position uint64) {
 	atomic.StoreUint64(&c.replyPosition, position)
 }
 
+// status get connect status
 func (c *client) status() (status *pgx.StandbyStatus, err error) {
 	replyPosition := c.getReplyPosition()
 	return pgx.NewStandbyStatus(c.getReceivePosition(), replyPosition, replyPosition)
@@ -73,16 +70,15 @@ func (c *client) heartbeat() error {
 
 // create replication connect
 func (c *client) connect() (ssid string, err error) {
-	if c.repConn, err = pgx.ReplicationConnect(c.connCfg); err != nil {
+	if c.repConn, err = pgx.ReplicationConnect(c.cfg); err != nil {
 		return ssid, err
 	}
-	if _, ssid, err = c.repConn.CreateReplicationSlotEx(
-		c.tableCfg.SlotName, "test_decoding"); err != nil {
+	if _, ssid, err = c.repConn.CreateReplicationSlotEx(c.slot, "test_decoding"); err != nil {
 		if pgerr, ok := err.(pgx.PgError); !ok || pgerr.Code != "42710" {
 			return ssid, fmt.Errorf("failed to create replication slot: %s", err)
 		}
 	}
-	if err = c.repConn.StartReplication(c.tableCfg.SlotName, 0, -1); err != nil {
+	if err = c.repConn.StartReplication(c.slot, 0, -1); err != nil {
 		_ = c.repConn.Close()
 		return ssid, err
 	}
@@ -101,7 +97,7 @@ func (c *client) replication(message *pgx.ReplicationMessage) (err error) {
 	}
 	if message.WalMessage != nil {
 		var data = model.AcquireWaldata()
-		if err = data.Decode(message.WalMessage, c.tableCfg.Name); err != nil {
+		if err = data.Decode(message.WalMessage, c.table); err != nil {
 			return fmt.Errorf("invalid postgres output message: %s", err)
 		}
 		if data.Timestamp > 0 {
@@ -120,14 +116,20 @@ func (c *client) commit(data *model.Waldata) {
 		flush = true
 	default:
 		c.records = append(c.records, data)
-		flush = len(c.records) > 1000
+		flush = len(c.records) > 20000
+		// TODO
+		if data.Pos > c.maxPosition {
+			c.maxPosition = data.Pos
+		}
 	}
 	if flush && len(c.records) > 0 {
 		c.callback(c.records)
+		c.setReplyPosition(c.maxPosition)
 		c.records = nil
 	}
 }
 
+// timer call heartbeat regularly
 func (c *client) timer(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
@@ -140,6 +142,7 @@ func (c *client) timer(ctx context.Context) {
 	}
 }
 
+// Start client
 func (c *client) Start(ctx context.Context) error {
 	ctx, c.cancel = context.WithCancel(ctx)
 	_, err := c.connect()
