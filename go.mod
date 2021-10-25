@@ -10,10 +10,8 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/lib/pq v1.10.3 // indirect
 	github.com/nickelser/parselogical v0.0.0-20171014195826-b07373e53c91
-	github.com/pkg/errors v0.8.1 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
+	go.uber.org/zap v1.19.1
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

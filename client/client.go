@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx"
+	"github.com/yanmengfei/logical/logger"
 	"github.com/yanmengfei/logical/model"
+	"go.uber.org/zap"
 )
 
 // client for logical
@@ -62,6 +64,7 @@ func (c *client) heartbeat() error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	status, err := c.status()
+	logger.Debug("send heartbeat")
 	if err != nil {
 		return err
 	}
@@ -73,11 +76,13 @@ func (c *client) connect() (ssid string, err error) {
 	if c.repConn, err = pgx.ReplicationConnect(c.cfg); err != nil {
 		return ssid, err
 	}
+	logger.Info("connect slot", zap.String("slot", c.slot))
 	if _, ssid, err = c.repConn.CreateReplicationSlotEx(c.slot, "test_decoding"); err != nil {
 		if pgerr, ok := err.(pgx.PgError); !ok || pgerr.Code != "42710" {
 			return ssid, fmt.Errorf("failed to create replication slot: %s", err)
 		}
 	}
+	logger.Info("start replication", zap.String("slot", c.slot))
 	if err = c.repConn.StartReplication(c.slot, 0, -1); err != nil {
 		_ = c.repConn.Close()
 		return ssid, err
@@ -176,6 +181,7 @@ func (c *client) Start(ctx context.Context) error {
 }
 
 func (c *client) Stop() error {
+	logger.Info("stop replication connect")
 	c.cancel()
 	return c.repConn.Close()
 }
