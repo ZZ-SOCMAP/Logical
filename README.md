@@ -69,9 +69,11 @@ func main() {
     slot := "book_cache_slot"
     c, err := client.New(cfg, table, slot, callback)
     if err != nil {
-        logger.Panic("new client error", zap.Error(err))
+        logger.Panic(err.Error())
     }
     logger.Info("start postgresql logical replication client")
-    panic(c.Start(context.Background()))
+    if err = c.Start(context.Background()); err != nil {
+    	logger.Panic(err.Error())
+    }
 }
 ```
