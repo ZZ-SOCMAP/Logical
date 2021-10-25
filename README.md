@@ -44,6 +44,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx"
+	"github.com/yanmengfei/logical/logger"
 	"github.com/yanmengfei/logical/client"
 	"github.com/yanmengfei/logical/model"
 )
@@ -68,9 +69,9 @@ func main() {
     slot := "book_cache_slot"
     c, err := client.New(cfg, table, slot, callback)
     if err != nil {
-        panic(err)
+        logger.Panic("new client error", zap.Error(err))
     }
-    fmt.Println("start postgresql logical replication client")
+    logger.Info("start postgresql logical replication client")
     panic(c.Start(context.Background()))
 }
 ```
