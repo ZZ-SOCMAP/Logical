@@ -14,10 +14,7 @@ import (
 
 const datelayout = "2006-01-02 15:04:05"
 
-var (
-	json     = jsoniter.ConfigCompatibleWithStandardLibrary
-	datapool = sync.Pool{New: func() interface{} { return new(Waldata) }}
-)
+var datapool = sync.Pool{New: func() interface{} { return new(Waldata) }}
 
 // Waldata represent parsed wal logger data
 type Waldata struct {
@@ -76,7 +73,7 @@ func (w *Waldata) Decode(wal *pgx.WalMessage, tableName string) error {
 				value = strings.Split(cell.Value[1:len(cell.Value)-1], ",")
 			case "jsonb":
 				value = make(map[string]interface{})
-				_ = json.UnmarshalFromString(cell.Value, &value)
+				_ = jsoniter.UnmarshalFromString(cell.Value, &value)
 			case "timestamp without time zone":
 				value, _ = time.Parse(datelayout, cell.Value)
 			default:

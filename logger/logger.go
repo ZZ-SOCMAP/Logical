@@ -7,8 +7,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const timeLayout = "2006-01-02 15:04:05"
-
 var logger *zap.Logger
 
 func Setup(level string) (err error) {
@@ -25,7 +23,7 @@ func Setup(level string) (err error) {
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.TimeEncoderOfLayout(timeLayout),
+		EncodeTime:     zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05"),
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.FullCallerEncoder,
 	}), zapcore.AddSync(os.Stdout), loggerLevel)
