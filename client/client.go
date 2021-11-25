@@ -164,7 +164,8 @@ func (c *client) Start(ctx context.Context) error {
 			if err == ctx.Err() {
 				return err
 			}
-			if c.repConn == nil || c.repConn.IsAlive() {
+			logger.Error("wait for replication message error", zap.Error(err))
+			if c.repConn == nil || !c.repConn.IsAlive() {
 				if _, err = c.connect(); err != nil {
 					return fmt.Errorf("reset replication connection error: %s", err)
 				}
